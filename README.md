@@ -50,3 +50,6 @@ Belief formula:
 B(t) = 1 / K(t)
 ```
 
+![img1](./img1_knowledge_depends_on_time.png)
+
+![img2](./img2_belief_depends_on_knowledge.png)
