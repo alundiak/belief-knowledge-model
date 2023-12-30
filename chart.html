@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Dynamics</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <style>
+    body {
+      display: flex;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="knowledgeDistributionChart" width="900" height="500"></canvas>
+  <canvas id="beliefVersusKnowledgeChart" width="900" height="500"></canvas>
+  <script>
+    const maxBelief = 100; // if 0% I believe in nothing, if 100% I believe in everything what people say or I read;
+    const maxKnowledge = 100; // if 0% I know nothing, if 100% I know everything;
+
+    function normalizeValue(rawValue, maxValue) {
+      const normalizedValue = (rawValue / maxValue) * 100;
+      return Math.min(Math.max(normalizedValue, 0), 100);
+    }
+
+    const startDate = new Date('2022-02-22').getTime();
+    const endDate = new Date().getTime();
+    const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+    // Function to generate random values from a normal distribution
+    function generateNormalDistribution(mean, standardDeviation) {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+
+      // Box-Muller transform
+      const z0 = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+
+      return mean + standardDeviation * z0;
+    }
+
+    // Function to calculate knowledge based on the formula
+    function calculateKnowledge(mean, stdDev, index) {
+      const date = startDate + index * (1000 * 60 * 60 * 24);
+      let knowledge;
+
+      if (index < days / 3) {
+        knowledge = generateNormalDistribution(mean, stdDev);
+      } else if (index < (2 * days) / 3) {
+        knowledge = generateNormalDistribution(mean + 10, stdDev);
+      } else {
+        knowledge = generateNormalDistribution(mean + 20, stdDev);
+      }
+
+      // if (knowledge > 100) { // 2 records are sometimes > 100
+      //   const formattedDate = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+      //   console.log(`Симуляція знання(%) на дату ${formattedDate}:`, knowledge);
+      // }
+
+      return { x: new Date(date), y: normalizeValue(knowledge, 100) }; // Needed, because random values can be more than 100
+    }
+
+    // Generate knowledge data
+    const knowledgeData = Array.from({ length: days }, (el, index) =>
+      calculateKnowledge(50, 10, index)
+    );
+
+    console.log('knowledgeData', knowledgeData);
+
+    // Function to calculate belief based on knowledge
+    function calculateBelief(knowledge) {
+      const rawBelief = 1 / knowledge;
+      //
+      // LOOKS LIKE it's ALREADY NORMALIZED !!!
+      //
+      const normalizedBelief = normalizeValue(rawBelief, maxBelief);
+      // console.log(`Симуляція рівня віри: ${normalizedBelief.toFixed(4)}%: for knowledge: ${knowledge.toFixed(4)}%`);
+
+      return normalizedBelief;
+      // return normalizedBelief * 1000; // helps to see values 20-50-70 but I am not sure it's correct/consistent
+    }
+
+    function calculateBeliefSimpleLinear(knowledge) {
+      // Avoid division by zero
+      const epsilon = 1e-7;
+      const safeKnowledge = Math.max(knowledge, epsilon);
+      return 1 / safeKnowledge;
+    }
+
+    function calculateBeliefPercentage(knowledge) {
+      const rawBelief = 1 / knowledge;
+      const maxBelief = 100;
+
+      // Calculate belief as the difference from the maximum value
+      const belief = maxBelief - (rawBelief * maxBelief);
+      console.log(knowledge, belief);
+      return belief;
+    }
+
+    function calculateBeliefLinear(knowledge) {
+      const rawBelief = 100 - knowledge; // if knowledge [0 - 100]
+      return rawBelief;
+    }
+
+    function calculateBeliefInLogarithmicWay(knowledge) { // WRONG
+      // SCALING FACTOR skipped for now
+      const logarithmicPart = Math.log1p(endDate - startDate); // "+ 1" is already included in Math.log1p(x) where body of log function is (1 + x)
+      const rawBelief = 1 / logarithmicPart;
+      const normalizedBelief = normalizeValue(rawBelief, maxBelief);
+      return normalizedBelief; // returning normalized value (0-100%)
+    }
+
+    const totalDurationDays = (knowledgeData[knowledgeData.length - 1].x - knowledgeData[0].x) / (1000 * 60 * 60 * 24);
+    console.log('My time range in days (скільки днів триває війна):', totalDurationDays);
+
+    function integrateByTrapezoidalRule(data) {
+      let integral = 0;
+
+      // Using the trapezoidal rule
+      for (let i = 1; i < data.length; i++) {
+        const deltaX = data[i].x - data[i - 1].x;
+        const avgValue = (data[i].y + data[i - 1].y) / 2;
+        integral += avgValue * deltaX;
+      }
+
+      return integral;
+    }
+
+    // x - axis represents time in milliseconds, the integral value 3469353148159.9062
+    // 3469353148159.9062 might represent the cumulative knowledge over the entire time range covered by your data in knowledge - milliseconds.
+    const knowledgeIntegral = integrateByTrapezoidalRule(knowledgeData);
+    console.log(`Knowledge Integral (during ${totalDurationDays} war days) `, knowledgeIntegral);
+
+    // Prepare data for the scatter chart
+    const scatterChartData = knowledgeData.map((dataPoint) => ({
+      x: dataPoint.y,
+      y: calculateBelief(dataPoint.y)
+      // y: calculateBeliefLinear(dataPoint.y)
+      // y: calculateBeliefPercentage(dataPoint.y)
+      // y: calculateBeliefSimpleLinear(dataPoint.y)
+      // y: calculateBeliefInLogarithmicWay(dataPoint.y) // WRONG
+    }));
+
+    // console.log('scatterChartData', scatterChartData);
+
+    // Display the charts
+    const canvas1 = document.getElementById('knowledgeDistributionChart');
+    const canvas2 = document.getElementById('beliefVersusKnowledgeChart');
+
+    const ctx1 = canvas1.getContext('2d');
+    const ctx2 = canvas2.getContext('2d');
+
+    new Chart(ctx1, {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: 'Розвиток Знання (від часу)',
+          data: knowledgeData,
+          borderColor: 'rgb(75, 192, 192)',
+          fill: false,
+        }],
+      },
+      options: {
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'day',
+            },
+            title: {
+              display: true,
+              text: 'Час',
+            },
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Знання',
+            },
+            min: 0,
+            max: 100,
+          },
+        },
+        maintainAspectRatio: false,
+        responsive: false,
+      },
+    });
+
+    new Chart(ctx2, {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          label: 'Розвиток Віри (від знання)',
+          data: scatterChartData,
+          borderColor: 'rgba(75, 192, 192, 1)',
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        }]
+      },
+      options: {
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            title: {
+              display: true,
+              text: 'Знання'
+            }
+          },
+          y: {
+            type: 'linear',
+            position: 'left',
+            title: {
+              display: true,
+              text: 'Віра'
+            }
+          }
+        },
+        maintainAspectRatio: false,
+        responsive: false,
+      }
+    });
+
+  </script>
+</body>
+
+</html>

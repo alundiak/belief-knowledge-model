@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Dynamics</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+</head>
+
+<body>
+  <canvas id="knowledgeChart"></canvas>
+  <script>
+    // Вам може знадобитися встановити бібліотеку Chart.js перед використанням, наприклад, через npm install chart.js
+
+    const startDate = new Date('2022-02-22').getTime();
+    const endDate = new Date('2023-12-29').getTime();
+    const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Генеруємо випадкові значення для знань в кожен день
+    // IDEAL RANDOM CASE
+    // const knowledgeData = Array.from({ length: days }, (_, index) => {
+    //   const date = startDate + index * (1000 * 60 * 60 * 24);
+    //   const knowledge = Math.random() * 100; // Випадкове число від 0 до 100
+    //   return { x: new Date(date), y: knowledge };
+    // });
+
+    // Функція для генерації значень з нормального розподілу
+    function generateNormalDistribution(mean, stdDev) {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random(); // Забезпечуємо, щоб u не було рівним 0
+      while (v === 0) v = Math.random(); // Забезпечуємо, щоб v не було рівним 0
+
+      const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      return mean + stdDev * z;
+    }
+
+    // Генеруємо випадкові значення для знань в кожен день з нормальним розподілом
+    const knowledgeData = Array.from({ length: days }, (_, index) => {
+      const date = startDate + index * (1000 * 60 * 60 * 24);
+
+      // Задаємо середнє та стандартне відхилення для нормального розподілу
+      let mean;
+      const stdDev = 10; // Стандартне відхилення
+
+      // Визначаємо середнє значення в залежності від етапу
+      if (index < days / 3) {
+        mean = 50;
+      } else if (index < (2 * days) / 3) {
+        mean = 60;
+      } else {
+        mean = 70;
+      }
+
+      // Генеруємо значення з нормальним розподілом
+      const knowledge = Math.min(Math.max(generateNormalDistribution(mean, stdDev), 0), 100);
+      console.log('knowledge %', knowledge);
+
+      return { x: new Date(date), y: knowledge };
+    });
+
+    // Функція для обчислення віри на основі значення знань
+    function calculateBelief(knowledge) {
+      const maxBelief = 100;
+      const rawBelief = (1 / knowledge) * 100;
+      return Math.min(rawBelief, maxBelief);
+    }
+
+    // Підготовка даних для графіка
+    const chartData = knowledgeData.map(dataPoint => ({
+      x: dataPoint.y, // Значення знань по осі X
+      y: calculateBelief(dataPoint.y) // Обчислена віра по осі Y
+    }));
+
+    // Відображаємо графік
+    const ctx = document.getElementById('knowledgeChart').getContext('2d');
+
+    new Chart(ctx, {
+      // type: 'line',
+      type: 'scatter', // Вибір типу графіка
+      data: {
+        datasets: [{
+          label: 'Знання vs. Віра',
+          data: chartData,
+          borderColor: 'rgba(75, 192, 192, 1)',
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        }]
+      },
+      options: {
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            title: {
+              display: true,
+              text: 'Знання'
+            }
+          },
+          y: {
+            type: 'linear',
+            position: 'left',
+            title: {
+              display: true,
+              text: 'Віра'
+            }
+          }
+        }
+      }
+    });
+
+  </script>
+</body>
+
+</html>

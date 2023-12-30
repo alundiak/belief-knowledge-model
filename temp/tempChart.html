@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Belief Dynamics</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <canvas id="beliefChart" width="800" height="400"></canvas>
+  <script>
+    // Параметри моделі
+    const alpha = 0.1; // Коефіцієнт згладжування
+
+    // Дані
+    const knowledgeLevels = [0.1, 0.3, 0.5, 0.7, 0.9]; // Зміни рівня "Знання" з часом
+
+    // Ініціалізація рівнів "Віри"
+    let beliefLevels = [1];
+
+    // Обчислення рівнів "Віри" з часом
+    for (let t = 1; t <= knowledgeLevels.length; t++) {
+      const belief = beliefLevels[t - 1] + alpha * (1 - beliefLevels[t - 1]) * knowledgeLevels[t - 1] * (1 - beliefLevels[t - 1]);
+      beliefLevels.push(belief);
+    }
+
+    // Візуалізація динаміки розвитку "Віри"
+    const ctx = document.getElementById('beliefChart').getContext('2d');
+    const beliefChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Array.from({ length: knowledgeLevels.length + 1 }, (_, i) => i),
+        datasets: [{
+          label: 'Belief',
+          data: beliefLevels,
+          borderColor: 'blue',
+          borderWidth: 2,
+          fill: false
+        }]
+      },
+      options: {
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom'
+          },
+          y: {
+            min: 0,
+            max: 1
+          }
+        }
+      }
+    });
+  </script>
+</body>
+
+</html>
